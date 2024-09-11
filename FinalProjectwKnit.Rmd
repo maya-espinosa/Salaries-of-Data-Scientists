@@ -1,0 +1,434 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+# Final Project for INFO 3010
+
+## AI/ML Salary Predictor
+
+## Maya Espinosa
+
+### Open and Check the Dataset
+
+```{r}
+#import the data
+salaries <- read.csv("C:/Users/Mayae/OneDrive/Documents/UNT/Spring 2024/DTSC 3010 Intro to D.S/salaries.csv")
+```
+
+```{r}
+#check the dataset
+head(salaries)
+```
+
+```{r}
+summary(salaries)
+```
+
+```{r}
+str(salaries)
+```
+
+### Libraries for Data Cleaning and EDA's
+
+```{r}
+# Load necessary libraries for data cleaning and EDA's
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(scales)
+```
+
+#### Data Cleaning
+
+```{r}
+# Remove rows with null or zero salary values
+salaries <- subset(salaries, !is.na(salary_in_usd) & salary_in_usd != 0)
+# Check the dimensions of the dataset after removing rows
+cat("Dimensions of the dataset after removing rows:", nrow(salaries), "rows and", ncol(salaries), "columns.")
+#there was no missing values
+```
+
+```{r}
+# Check if any job titles include "internship" or "intern"
+internship_jobs <- subset(salaries, grepl("internship|intern", job_title, ignore.case = TRUE))
+# Display the job titles containing "internship" or "intern"
+if (nrow(internship_jobs) > 0) {
+  cat("Job titles containing 'internship' or 'intern':\n")
+  cat(internship_jobs$job_title, "\n")
+} else {
+  cat("No job titles contain 'internship' or 'intern'.\n")
+}
+```
+
+```{r}
+summary(salaries$salary_in_usd)
+```
+
+```{r}
+#Which jobs make less than $25,000 USD (low range of data engineer)
+# Filter rows with salary less than $25,000 USD
+low_salary_jobs <- subset(salaries, salary_in_usd < 25000)
+# Drop the columns "salary" and "salary_currency"
+low_salary_jobs <- low_salary_jobs[, !(names(low_salary_jobs) %in% c("salary", "salary_currency"))]
+# Display the job titles of the jobs with low salaries
+if (nrow(low_salary_jobs) > 0) {
+  cat("Job titles of jobs with salary less than $25,000 USD:")
+  cat(unique(low_salary_jobs$job_title))
+} else {
+  cat("No jobs with salary less than $25,000 USD.")
+}
+# Display the table of jobs with low salaries
+if (nrow(low_salary_jobs) > 0) {
+  print(low_salary_jobs)
+} else {
+  cat("No jobs with salary less than $25,000 USD.")
+}
+```
+
+```{r}
+# Create a histogram of salaries from low_salary_jobs
+ggplot(low_salary_jobs, aes(x = salary_in_usd, fill = ..count..)) +
+  geom_histogram(color = "black", bins = 20) +
+  theme_minimal() +
+  labs(title = "Histogram of Salaries (<$20,000 USD)",
+       x = "Salary (USD)",
+       y = "Frequency") +
+  scale_fill_gradient("Frequency", low = "#fbc046", high = "red")
+```
+
+#### Exploratory Data Analysis (EDA)
+
+```{r}
+# Histogram of salaries
+ggplot(salaries, aes(x = salary_in_usd)) +
+  geom_histogram(binwidth = 5000, fill = "#cb6ce6", color = "black") +
+  scale_x_continuous(labels = scales::dollar_format(scale = 1e-3, suffix = "k")) +
+  labs(title = "Distribution of Salaries",
+       x = "Salary (USD)",
+       y = "Frequency") +
+  theme_minimal()
+```
+
+```{r}
+summary(salaries)
+```
+
+```{r}
+# Box plot of salaries by job title
+ggplot(salaries, aes(x = job_title, y = salary_in_usd)) +
+  geom_boxplot(fill = "#0f52fb", color = "black") +
+  labs(title = "Salary Distribution by Job Title",
+       x = "Job Title",
+       y = "Salary (USD)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_y_continuous(labels = scales::comma)
+```
+
+```{r}
+# Bar plot of job title frequencies
+job_title_counts <- salaries %>% 
+  count(job_title) %>%
+  arrange(desc(n))
+
+ggplot(job_title_counts, aes(x = reorder(job_title, -n), y = n)) +
+  geom_bar(stat = "identity", fill = "#f9b61a", color = "black") +
+  labs(title = "Frequency of Job Titles",
+       x = "Job Title",
+       y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+#fix to make it more readable (change the filter value as needed)
+# Filter out job titles with n frequency
+filtered_job_title_counts <- job_title_counts %>%
+  filter(n > 100)
+
+ggplot(filtered_job_title_counts, aes(x = reorder(job_title, -n), y = n)) +
+  geom_bar(stat = "identity", fill = "#f9b61a", color = "black") +
+  scale_y_continuous(labels = scales::comma) +  # Format y-axis labels with commas
+  labs(title = "Frequency of Job Titles",
+       x = "Job Title",
+       y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Correlation matrix
+correlation_matrix <- cor(salaries[, c("salary_in_usd", "remote_ratio")])
+# Convert correlation matrix to long format
+correlation_long <- as.data.frame(as.table(correlation_matrix))
+names(correlation_long) <- c("Var1", "Var2", "value")
+# Heatmap of correlation matrix
+ggplot(data = correlation_long, aes(x = Var1, y = Var2, fill = value)) +
+  geom_tile() +
+  scale_fill_gradient(low = "#f9b61a", high = "#f52e18") +
+  labs(title = "Correlation Heatmap",
+       x = "",
+       y = "")
+
+```
+
+```{r}
+# Scatter plot of salary vs. years of experience
+ggplot(salaries, aes(x = experience_level, y = salary_in_usd)) +
+  geom_point(alpha = 0.5, color = "#cb6ce6") +
+  scale_y_continuous(labels = scales::dollar_format(scale = 1e-3)) +  # Format y-axis labels in thousands
+  labs(title = "Salary vs. Years of Experience",
+       x = "Experience Level",
+       y = "Salary (USD in Thousands)") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+# Calculate frequency of each unique remote_ratio value
+remote_ratio_counts <- table(salaries$remote_ratio)
+# Convert the counts to a data frame for plotting
+remote_ratio_df <- data.frame(remote_ratio = as.numeric(names(remote_ratio_counts)),
+                              count = as.numeric(remote_ratio_counts))
+# Define pink color palette
+pink_palette <- c("#cb6ce6", "#0f52fb", "#b2de55")
+# Plot pie chart
+ggplot(remote_ratio_df, aes(x = "", y = count, fill = factor(remote_ratio))) +
+  geom_bar(stat = "identity", width = 1) +
+  coord_polar("y", start = 0) +
+  labs(title = "Distribution of Remote Work Ratio",
+       fill = "Remote Work",
+       x = NULL,
+       y = NULL) +
+  scale_fill_manual(values = pink_palette) +  #
+  theme_void() +
+  theme(legend.position = "right")
+```
+
+### Statistical Tests
+
+```{r}
+#Load required packages
+library(stats)
+```
+
+```{r}
+# Run ANOVA test
+anova_result <- aov(salary_in_usd ~ experience_level, data = salaries)
+
+# Summary of ANOVA results
+print("One-Way ANOVA:")
+summary(anova_result)
+```
+
+-   The **`experience_level`** variable has a statistically significant effect on **`salary_in_usd`** (p \< 0.001).
+
+-   This suggests that there are significant differences in **`salary_in_usd`** across different levels of **`experience_level`**.
+
+```{r}
+# Perform Pearson's chi-square test
+chi_square_result <- chisq.test(table(salaries$employment_type, salaries$remote_ratio))
+
+# Summary of chi-square results
+print(chi_square_result)
+```
+
+-   **X-squared**: The chi-squared statistic value is 140.28.
+
+-   **Degrees of Freedom (df)**: The degrees of freedom associated with the chi-squared statistic is 6.
+
+-   **p-value**: The p-value is less than 2.2e-16 (essentially zero), suggesting strong evidence against the null hypothesis. Thus, we reject the null hypothesis of independence.
+
+```{r}
+# Pearson Correlation Test
+correlation_result <- cor.test(salaries$salary_in_usd, salaries$remote_ratio, method = "pearson")
+print("Pearson Correlation Test:")
+print(correlation_result)
+```
+
+-   The correlation coefficient between **`salary_in_usd`** and **`remote_ratio`** is approximately -0.095. This suggests a weak negative correlation between the two variables.
+
+-   The p-value is very small (2.62e-16), indicating strong evidence against the null hypothesis of no correlation.
+
+-   Therefore, we reject the null hypothesis and conclude that there is a significant correlation between **`salary_in_usd`** and **`remote_ratio`**.
+
+```{r}
+# Perform ANOVA test
+anova_result <- aov(salary_in_usd ~ work_year, data = salaries)
+
+# Summary of ANOVA test
+summary(anova_result)
+```
+
+-   The F value is 310.2, indicating a significant association between **`work_year`** and **`salary_in_usd`**.
+
+-   The p-value (**`Pr(>F)`**) is less than 2e-16, indicating that the association between **`work_year`** and **`salary_in_usd`** is statistically significant.
+
+```{r}
+# Perform ANOVA
+anova_result <- aov(salary_in_usd ~ job_title, data = salaries)
+print(summary(anova_result))
+
+# Perform Kruskal-Wallis test
+kruskal_test_result <- kruskal.test(salary_in_usd ~ job_title, data = salaries)
+print(kruskal_test_result)
+```
+
+-   In the ANOVA test, the p-value is less than 0.05, indicating that there are significant differences in the mean salaries across different job titles.
+
+-   Similarly, in the Kruskal-Wallis test, the p-value is less than 0.05, suggesting that there are significant differences in the median salaries across different job titles.
+
+```{r}
+anova_result <- aov(salary_in_usd ~ work_year + employment_type + experience_level + job_title, data = salaries)
+print(summary(anova_result))
+```
+
+-   Overall, this ANOVA suggests that normalized work year, experience level, job title, and employment type are all significantly associated with variations in salary within your dataset.
+
+    ### Supervised Learning
+
+```{r}
+# Fit linear regression model
+linear_model <- lm(salary_in_usd ~ work_year + employment_type + experience_level + job_title, data = salaries)
+
+# Summary of the linear regression model
+summary(linear_model)
+
+```
+
+-   **Adjusted R-squared**: The adjusted R-squared value is 0.3058, which indicates that approximately 30.58% of the variance in **`salary_in_usd`** can be explained by the combination of **`work_year`**, **`employment_type`**, **`experience_level`**, and **`job_title`**.
+
+-   **Coefficients**:
+
+    -   For **`work_year`**, **`employment_type`**, **`experience_level`**, and **`job_title`**, the coefficients represent the change in salary relative to the reference categories or levels. For example, compared to employees with full-time (FT) employment, employees with freelance (FL) employment have a salary approximately \$69800 lower, on average, holding other variables constant.
+
+-   **Model Significance**: The overall model is statistically significant, as indicated by the F-statistic (F = 27.16, p \< 2.2e-16).
+
+-   **Residuals**: The residual standard error is 53250, indicating the average deviation of the observed values from the fitted values.
+
+```{r}
+# Load the randomForest library
+library(randomForest)
+
+# Fit random forest model
+rf_model <- randomForest(salary_in_usd ~ work_year + employment_type + experience_level + job_title, data = salaries)
+
+# Summary of the random forest model
+print(summary(rf_model))
+
+# Get predicted values from the model
+predicted_values <- predict(rf_model)
+
+# Calculate Mean Squared Error (MSE)
+mse <- mean((salaries$salary_in_usd - predicted_values)^2)
+
+# Calculate R-squared (rsq)
+actual_mean <- mean(salaries$salary_in_usd)
+rsq <- 1 - sum((salaries$salary_in_usd - predicted_values)^2) / sum((salaries$salary_in_usd - actual_mean)^2)
+print("Mean Squared Error:")
+print(mse)
+print("R-squared:")
+print(rsq)
+```
+
+```{r}
+# Load the e1071 library for SVM
+library(e1071)
+
+# Fit SVM regression model
+svm_model <- svm(salary_in_usd ~ work_year + employment_type + experience_level + job_title, data = salaries)
+
+# Summary of the SVM regression model
+print(summary(svm_model))
+
+# Get predicted values from the model
+predicted_values <- predict(svm_model)
+
+# Calculate R-squared (rsq)
+actual_mean <- mean(salaries$salary_in_usd)
+rsq <- 1 - sum((salaries$salary_in_usd - predicted_values)^2) / sum((salaries$salary_in_usd - actual_mean)^2)
+print("R-squared:")
+print(rsq)
+```
+
+```{r}
+# Load the rpart library for regression trees
+library(rpart)
+
+# Fit regression tree model with specified cp value
+tree_model <- rpart(salary_in_usd ~ work_year + employment_type + experience_level + job_title,
+                    data = salaries,
+                    cp = 0.001)  # Specify the desired cp value
+
+# Summary of the regression tree model
+print(summary(tree_model))
+
+# Get predicted values from the model
+predicted_values <- predict(tree_model)
+
+# Calculate R-squared (rsq)
+actual_mean <- mean(salaries$salary_in_usd)
+rsq <- 1 - sum((salaries$salary_in_usd - predicted_values)^2) / sum((salaries$salary_in_usd - actual_mean)^2)
+print(rsq)
+
+```
+
+```{r}
+# Create a bar chart to show variable importance
+variable_importance <- c(49, 43, 7, 1)  # Variable importance values
+variables <- c("job_title", "experience_level", "work_year", "employment_type")  # Variable names
+
+barplot(variable_importance, names.arg = variables, 
+        col = "red", main = "Variable Importance in Regression Tree Model",
+        xlab = "Variables", ylab = "Importance")
+
+# Print the Mean Squared Error (MSE)
+MSE <- 4.084373e+09  # Mean Squared Error value from the model summary
+cat("Mean Squared Error (MSE):", MSE)
+
+```
+
+### Prediction
+
+```{r}
+# Load the rpart library for regression trees
+library(rpart)
+
+# Fit regression tree model with specified cp value
+tree_model <- rpart(salary_in_usd ~ work_year + employment_type + experience_level + job_title,
+                    data = salaries,
+                    cp = 0.001)  # Specify the desired cp value
+
+# Function to predict salary based on user inputs
+predict_salary <- function() {
+  # Get user inputs
+  work_year <- as.numeric(readline("Enter work year: "))  # Input for work_year
+  employment_type <- readline("Enter employment type (FT, PT, CT, FL): ")  # Input for employment_type
+  experience_level <- readline("Enter experience level (EN, MI, SE, EX): ")  # Input for experience_level
+  job_title <- readline("Enter job title: ")  # Input for job_title
+  
+  # Create a data frame with user inputs
+  user_inputs <- data.frame(
+    work_year = work_year,
+    employment_type = employment_type,
+    experience_level = experience_level,
+    job_title = job_title
+  )
+  
+  # Predict salary based on user inputs
+  predicted_salary <- predict(tree_model, newdata = user_inputs)
+  
+  # Return predicted salary
+  return(predicted_salary)
+}
+
+# Predict salary based on user inputs
+predicted_salary <- predict_salary()
+
+# Print predicted salary
+cat("Predicted salary in USD: $", predicted_salary, "\n")
+
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Ctrl+Alt+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Ctrl+Shift+K* to preview the HTML file).
+
+The preview shows you a rendered HTML copy of the contents of the editor. Consequently, unlike *Knit*, *Preview* does not run any R code chunks. Instead, the output of the chunk when it was last run in the editor is displayed.
